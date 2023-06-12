@@ -1,5 +1,5 @@
-import init, {Action, Cell, Grid} from "rust"
-import * as Comlink from "comlink"
+import init, {Action, Grid} from "rust"
+import {expose} from "comlink"
 
 const module = {
     init: async (memory: WebAssembly.Memory): Promise<void> => {
@@ -7,10 +7,7 @@ const module = {
     },
     aiAction: (grid: Grid): Action => {
         grid = fix(grid, Grid);
-        console.log(grid);
-        const action = grid.ai_action();
-        console.log("! %o %o", grid, action);
-        return action;
+        return grid.ai_action();
     }
 };
 
@@ -20,7 +17,7 @@ export type WorkerType = {
             (...args: A) => Promise<U> : typeof module[K];
 };
 
-Comlink.expose(module);
+expose(module);
 
 const fix = (broken, clz) => {
     const obj = Object.create(clz.prototype);

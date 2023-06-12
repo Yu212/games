@@ -1,22 +1,20 @@
 import React, {useEffect, useMemo, useState} from "react"
 import UltimateTicTacToeCanvas from "./UltimateTicTacToeCanvas.tsx";
-import init from "rust"
+import initWasm from "rust"
 import WasmLoading from "./WasmLoading.tsx";
-import * as Comlink from "comlink";
+import {wrap} from "comlink";
 import WasmWorker from "./wasm.worker.ts?worker"
 import {WorkerType} from "./wasm.worker.ts"
 
 const UltimateTicTacToe: React.FC = () => {
-    const wasmWorker = useMemo<WorkerType>(() => Comlink.wrap(new WasmWorker()) as unknown as WorkerType, []);
+    const wasmWorker = useMemo<WorkerType>(() => wrap(new WasmWorker()) as unknown as WorkerType, []);
     const [isWasmLoaded, setIsWasmLoaded] = useState<boolean>(false);
-    const [a, setA] = useState(1);
+    const [a, setA] = useState<number>(1);
     console.log(a);
     useEffect(() => {
-        (async () => {
-            const wasm = await init();
-            await wasmWorker.init(wasm.memory);
-            setIsWasmLoaded(true);
-        })();
+        initWasm()
+            .then(wasm => wasmWorker.init(wasm.memory))
+            .then(() => setIsWasmLoaded(true));
     }, [wasmWorker]);
     return (
         <>
