@@ -1,6 +1,5 @@
 mod ultimate_tic_tac_toe;
 
-// pub use wasm_bindgen_rayon::init_thread_pool;
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "wee_alloc")]
