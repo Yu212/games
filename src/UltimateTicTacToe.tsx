@@ -22,7 +22,7 @@ const UltimateTicTacToe: React.FC = () => {
                 hello
             </button>
             <h2>Ultimate Tic-Tac-Toe</h2>
-            {isWasmLoaded ? <UltimateTicTacToeCanvas worker={wasmWorker}/> : <WasmLoading />}
+            {isWasmLoaded ? <UltimateTicTacToeCanvas worker={wasmWorker} /> : <WasmLoading />}
         </>
     );
 }

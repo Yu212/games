@@ -1,8 +1,13 @@
-use rand::seq::IteratorRandom;
-use rand::thread_rng;
 use wasm_bindgen::prelude::wasm_bindgen;
 use crate::log;
+use crate::ultimate_tic_tac_toe::ai::{alpha_beta_action, init, State};
 use crate::ultimate_tic_tac_toe::game::Turn::{Player, Ai};
+
+#[wasm_bindgen]
+pub unsafe fn init_ai() {
+    log!("init ai");
+    init();
+}
 
 #[wasm_bindgen]
 pub struct Grid {
@@ -41,7 +46,7 @@ impl Grid {
         if winner.is_some() {
             self.winner = winner;
         }
-        if self.grid_big[action.s].is_some() {
+        if self.grid_big[action.s].is_some() || self.grid_small[action.s].iter().all(|c| c.is_some()) {
             self.last_big = None
         } else {
             self.last_big = Some(action.s);
@@ -66,22 +71,47 @@ impl Grid {
     }
 
     pub fn ai_action(&self) -> Cell {
-        let mut a = 0;
-        for i in 0..10000 {
-            for j in 0..100000 {
-                a += i * j + 1 - j;
-                if a < 0 {
-                    a += 1;
+        let mut small_win = 0;
+        let mut small_lose = 0;
+        let mut big_win = 0;
+        let mut big_lose = 0;
+        let mut big_draw = 0;
+        for b in 0..9 {
+            for s in 0..9 {
+                match self.grid_small[b][s] {
+                    Some(Ai) => {
+                        small_win |= 1_u128 << (b * 9 + s);
+                    }
+                    Some(Player) => {
+                        small_lose |= 1_u128 << (b * 9 + s);
+                    }
+                    None => {}
                 }
             }
+            if self.grid_small[b].iter().all(|c| c.is_some()) {
+                big_draw |= 1 << b;
+            }
+            match self.grid_big[b] {
+                Some(Ai) => {
+                    big_win |= 1 << b;
+                }
+                Some(Player) => {
+                    big_lose |= 1 << b;
+                }
+                None => {}
+            }
         }
-        if a == 0 {
-            log!("{}", a);
-        }
-        let action = (0..81).map(|i| Cell { b: i%9, s: i/9 })
-            .filter(|a| self.is_valid_action(a))
-            .choose(&mut thread_rng());
-        action.unwrap()
+        let last_big = if self.last_big.is_some() { self.last_big.unwrap() as i8 } else { -1 };
+        let state = State {
+            small_win,
+            small_lose,
+            big_win,
+            big_lose,
+            big_draw,
+            last_big
+        };
+        let action = alpha_beta_action(&state, 7).unwrap();
+        Cell { b: action.b as usize, s: action.s as usize }
     }
 
     fn winner(grid: &[Option<Turn>; 9]) -> Option<Turn> {

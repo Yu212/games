@@ -1,11 +1,12 @@
-import init, {Action, Grid} from "rust"
+import init, {Cell, Grid} from "rust"
 import {expose} from "comlink"
 
 const module = {
     init: async (memory: WebAssembly.Memory): Promise<void> => {
-        await init(undefined, memory);
+        const wasm = await init(undefined, memory);
+        wasm.init_ai();
     },
-    aiAction: (grid: Grid): Action => {
+    aiAction: (grid: Grid): Cell => {
         grid = fix(grid, Grid);
         return grid.ai_action();
     }
