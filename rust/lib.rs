@@ -16,6 +16,9 @@ pub fn set_panic_hook() {
 extern {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
+
+    #[no_mangle]
+    static performance: web_sys::Performance;
 }
 
 #[macro_export]

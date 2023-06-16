@@ -1,6 +1,8 @@
+use std::ops::Add;
+use std::time::Duration;
 use wasm_bindgen::prelude::wasm_bindgen;
 use crate::log;
-use crate::ultimate_tic_tac_toe::ai::{alpha_beta_action, init, State};
+use crate::ultimate_tic_tac_toe::ai::{alpha_beta_action, init, State, Timer};
 use crate::ultimate_tic_tac_toe::game::Turn::{Player, Ai};
 
 #[wasm_bindgen]
@@ -23,15 +25,13 @@ pub struct Grid {
 #[wasm_bindgen]
 impl Grid {
     pub fn initial_grid() -> Self {
-        let board = Grid {
+        Grid {
             grid_small: [[None; 9]; 9],
             grid_big: [None; 9],
             last_big: None,
             is_player_turn: true,
             winner: None
-        };
-        log!("init board");
-        board
+        }
     }
 
     pub fn play(mut self, action: &Cell) -> Self {
@@ -110,7 +110,8 @@ impl Grid {
             big_draw,
             last_big
         };
-        let action = alpha_beta_action(&state, 7).unwrap();
+        let timer = Timer::new(&Duration::from_secs(10));
+        let action = alpha_beta_action(&state, 7, &timer).unwrap();
         Cell { b: action.b as usize, s: action.s as usize }
     }
 
