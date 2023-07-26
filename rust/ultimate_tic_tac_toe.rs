@@ -1,2 +1,6 @@
+pub mod ai;
+#[cfg(target_arch = "wasm32")]
 mod game;
-mod ai;
+pub(crate) mod strategy_alpha_beta;
+pub(crate) mod strategy_mcts;
+pub(crate) mod strategy_random;

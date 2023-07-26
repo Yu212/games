@@ -2,7 +2,9 @@ use std::ops::Add;
 use std::time::Duration;
 use wasm_bindgen::prelude::wasm_bindgen;
 use crate::log;
-use crate::ultimate_tic_tac_toe::ai::{alpha_beta_action, init, State, Timer};
+use crate::ultimate_tic_tac_toe::strategy_alpha_beta::calc_action;
+use crate::ultimate_tic_tac_toe::ai::{init, State, ZOBRIST};
+use crate::wasm::Timer;
 use crate::ultimate_tic_tac_toe::game::Turn::{Player, Ai};
 
 #[wasm_bindgen]
@@ -76,13 +78,16 @@ impl Grid {
         let mut big_win = 0;
         let mut big_lose = 0;
         let mut big_draw = 0;
+        let mut hash = 1;
         for b in 0..9 {
             for s in 0..9 {
                 match self.grid_small[b][s] {
                     Some(Ai) => {
+                        hash ^= unsafe { ZOBRIST[b * 9 + s + 81] };
                         small_win |= 1_u128 << (b * 9 + s);
                     }
                     Some(Player) => {
+                        hash ^= unsafe { ZOBRIST[b * 9 + s] };
                         small_lose |= 1_u128 << (b * 9 + s);
                     }
                     None => {}
@@ -108,10 +113,12 @@ impl Grid {
             big_win,
             big_lose,
             big_draw,
-            last_big
+            last_big,
+            hash,
+            turn: self.is_player_turn,
         };
-        let timer = Timer::new(&Duration::from_secs(10));
-        let action = alpha_beta_action(&state, 7, &timer).unwrap();
+        let timer = Timer::new(&Duration::from_secs(1));
+        let action = calc_action(&state, &timer, true);
         Cell { b: action.b as usize, s: action.s as usize }
     }
 

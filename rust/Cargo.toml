@@ -1,24 +1,27 @@
 [package]
-name = "rust"
+name = "core"
 version = "1.0.0"
 authors = ["Yu_212"]
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-path = "lib.rs"
+path = "wasm.rs"
 
-[features]
-default = ["console_error_panic_hook"]
+[[bin]]
+name = "bench"
+path = "bench.rs"
 
 [dependencies]
+rand = "0.8.5"
+itertools = "0.11.0"
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+getrandom = "0.2.10"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.86"
 console_error_panic_hook = { version = "0.1.7", optional = true }
 wee_alloc = { version = "0.4.5", optional = true }
-getrandom = { version = "0.2.10", features = ["js"] }
-rand = "0.8.5"
-itertools = "0.10.5"
 web-sys = { version = "0.3.64", features = ["Performance"] }
-
-[dev-dependencies]
-wasm-bindgen-test = "0.3.36"
+getrandom = { version = "0.2.10", features = ["js"] }
