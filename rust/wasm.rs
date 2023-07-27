@@ -33,6 +33,10 @@ pub mod wasm {
         pub fn elapsed(&self) -> bool {
             unsafe { performance.now() > self.0 }
         }
+
+        pub fn time(&self) -> Duration {
+            unsafe { Duration::from_secs_f64(performance.now() * 1000.) }
+        }
     }
 
     #[macro_export]

@@ -20,9 +20,9 @@ fn play() -> Winner {
         let mut time_limit = Duration::from_millis(100);
         let timer = Timer::new(&time_limit);
         let action = if turn {
-            alpha_beta_action(&state, &timer, false)
-        } else {
             mcts_action(&state, &timer, false)
+        } else {
+            alpha_beta_action(&state, &timer, false)
         };
         turn = !turn;
         state = state.advanced(&action);

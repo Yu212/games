@@ -1,3 +1,4 @@
+use std::time::Duration;
 use crate::ultimate_tic_tac_toe::ai::{SCORE, ZOBRIST, State, Action, SCORE_WIN, Timer, log};
 
 pub fn calc_action(state: &State, timer: &Timer, logging: bool) -> Action {
@@ -23,11 +24,12 @@ pub fn calc_action(state: &State, timer: &Timer, logging: bool) -> Action {
 
 pub fn alpha_beta_action(state: &State, depth: u8, timer: &Timer, logging: bool) -> Option<Action> {
     unsafe {
+        let time = Timer::new(&Duration::ZERO);
         let mut alpha = f32::MIN;
         let mut best: Option<Action> = None;
         for action in state.valid_actions() {
             let next = state.advanced(&action);
-            let score = -alpha_beta(&next, f32::MIN, -alpha, depth, &timer);
+            let score = -alpha_beta(&next, f32::MIN, -alpha, 0, depth, &timer);
             if score == SCORE_WIN {
                 return Some(action);
             }
@@ -35,7 +37,7 @@ pub fn alpha_beta_action(state: &State, depth: u8, timer: &Timer, logging: bool)
                 return None;
             }
             if logging {
-                log!("{}-{}, {}, {}", action.b, action.s, score, next.calc_score());
+                log!("{}-{}, {}, {}, {:?}", action.b, action.s, score, next.calc_score(), time.time());
             }
             if alpha < score {
                 alpha = score;
@@ -49,19 +51,16 @@ pub fn alpha_beta_action(state: &State, depth: u8, timer: &Timer, logging: bool)
     }
 }
 
-pub fn alpha_beta(state: &State, mut alpha: f32, beta: f32, depth: u8, timer: &Timer) -> f32 {
-    if timer.elapsed() {
-        return 0.;
-    }
-    if depth == 0 || state.finished() {
+pub fn alpha_beta(state: &State, mut alpha: f32, beta: f32, depth: u8, max_depth: u8, timer: &Timer) -> f32 {
+    if depth == max_depth || state.finished() {
         return state.calc_score();
+    }
+    if depth <= 3 && timer.elapsed() {
+        return 0.;
     }
     for action in state.valid_actions() {
         let next = state.advanced(&action);
-        let score = -alpha_beta(&next, -beta, -alpha, depth - 1, timer);
-        if timer.elapsed() {
-            break
-        }
+        let score = -alpha_beta(&next, -beta, -alpha, depth + 1, max_depth, timer);
         if alpha < score {
             alpha = score;
         }

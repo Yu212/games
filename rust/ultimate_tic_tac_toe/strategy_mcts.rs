@@ -106,11 +106,11 @@ impl Node {
     }
 
     fn playout(&self) -> f32 {
-        let mut state = self.state;
+        let mut state = self.state.clone();
         let mut value = 1.;
         loop {
             let action = state.random_action();
-            state = state.advanced(&action);
+            state.advance_self(&action);
             value = -value;
             return match state.winner() {
                 Some(MatchResult::Win) => value,
