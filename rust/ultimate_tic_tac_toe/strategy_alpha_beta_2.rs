@@ -37,7 +37,7 @@ pub fn alpha_beta_action(state: &State, depth: u8, timer: &Timer, logging: bool)
                 return None;
             }
             if logging {
-                log!("{}-{}, {}, {:.8}, {:.8}, {:.8}, {:?}", action.b, action.s, action.anywhere, action.score, score, calc_score(&next), time.time());
+                log!("{}-{}, {}, {}, {:?}", action.b, action.s, score, calc_score(&next), time.time());
             }
             if alpha < score {
                 alpha = score;
