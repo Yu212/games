@@ -9,7 +9,7 @@ const TRANSPOSE_HASH_MASK: u64 = 0xfffff;
 
 pub fn calc_action(state: &State, timer: &Timer, logging: bool) -> Action {
     if state.small_lose | state.small_win == 0 {
-        return Action { b: 4, s: 4, anywhere: false, score: 0. };
+        return Action { b: 4, s: 4, anywhere: false, eval: 0. };
     }
     let mut action = None;
     for depth in 3..20 {
@@ -37,20 +37,20 @@ pub fn negascout_action(state: &State, depth: u8, timer: &Timer, logging: bool) 
         let time = Timer::new(&Duration::ZERO);
         let mut alpha = f32::MIN;
         let mut best: Option<Action> = None;
-        for action in state.valid_actions() {
+        for action in state.valid_actions_with_move_ordering() {
             let next = state.advanced(&action);
-            let score = -negascout(&next, f32::MIN, -alpha, 0, depth, &timer);
-            if score == SCORE_WIN {
+            let eval = -negascout(&next, f32::MIN, -alpha, 0, depth, &timer);
+            if eval == SCORE_WIN {
                 return Some(action);
             }
             if timer.elapsed() {
                 return None;
             }
             if logging {
-                log!("{}-{}, {}, {}, {:?}", action.b, action.s, score, calc_score(&next), time.time());
+                log!("{}-{}, {}, {}, {:?}", action.b, action.s, eval, calc_eval(&next), time.time());
             }
-            if alpha < score {
-                alpha = score;
+            if alpha < eval {
+                alpha = eval;
                 best = Some(action);
             }
         }
@@ -63,7 +63,7 @@ pub fn negascout_action(state: &State, depth: u8, timer: &Timer, logging: bool) 
 
 pub fn negascout(state: &State, mut alpha: f32, mut beta: f32, depth: u8, max_depth: u8, timer: &Timer) -> f32 {
     if depth == max_depth || state.finished() {
-        return calc_score(state);
+        return calc_eval(state);
     }
     if depth <= 3 && timer.elapsed() {
         return 0.;
@@ -84,46 +84,46 @@ pub fn negascout(state: &State, mut alpha: f32, mut beta: f32, depth: u8, max_de
     }
     alpha = alpha.max(lower);
     beta = beta.max(upper);
-    let actions = state.valid_actions();
+    let actions = state.valid_actions_with_move_ordering();
     let first = state.advanced(&actions[0]);
-    let score = -negascout(&first, -beta, -alpha, depth + 1, max_depth, timer);
-    let mut max_score = score;
-    if beta <= score {
-        return score;
+    let eval = -negascout(&first, -beta, -alpha, depth + 1, max_depth, timer);
+    let mut max_eval = eval;
+    if beta <= eval {
+        return eval;
     }
-    if alpha < score {
-        alpha = score;
+    if alpha < eval {
+        alpha = eval;
     }
     for action in actions.iter().skip(1) {
         let next = state.advanced(&action);
-        let mut score = -negascout(&next, -alpha - f32::EPSILON, -alpha, depth + 1, max_depth, timer);
-        if beta <= score {
-            return score;
+        let mut eval = -negascout(&next, -alpha - f32::EPSILON, -alpha, depth + 1, max_depth, timer);
+        if beta <= eval {
+            return eval;
         }
-        if alpha < score {
-            alpha = score;
-            score = -negascout(&next, -beta, -alpha, depth + 1, max_depth, timer);
-            if beta <= score {
-                return score;
+        if alpha < eval {
+            alpha = eval;
+            eval = -negascout(&next, -beta, -alpha, depth + 1, max_depth, timer);
+            if beta <= eval {
+                return eval;
             }
-            if alpha < score {
-                alpha = score;
+            if alpha < eval {
+                alpha = eval;
             }
         }
-        max_score = max_score.max(score);
+        max_eval = max_eval.max(eval);
     }
-    if max_score < alpha {
+    if max_eval < alpha {
         unsafe {
             TRANSPOSE_UPPER_HASH[masked_hash] = state.hash;
-            TRANSPOSE_UPPER[masked_hash] = max_score;
+            TRANSPOSE_UPPER[masked_hash] = max_eval;
         }
     } else {
         unsafe {
             TRANSPOSE_UPPER_HASH[masked_hash] = state.hash;
-            TRANSPOSE_UPPER[masked_hash] = max_score;
+            TRANSPOSE_UPPER[masked_hash] = max_eval;
             TRANSPOSE_LOWER_HASH[masked_hash] = state.hash;
-            TRANSPOSE_LOWER[masked_hash] = max_score;
+            TRANSPOSE_LOWER[masked_hash] = max_eval;
         }
     }
-    max_score
+    max_eval
 }

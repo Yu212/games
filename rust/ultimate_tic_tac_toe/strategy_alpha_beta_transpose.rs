@@ -9,7 +9,7 @@ const TRANSPOSE_HASH_MASK: u64 = 0xfffff;
 
 pub fn calc_action(state: &State, timer: &Timer, logging: bool) -> Action {
     if state.small_lose | state.small_win == 0 {
-        return Action { b: 4, s: 4, anywhere: false, score: 0. };
+        return Action { b: 4, s: 4, anywhere: false, eval: 0. };
     }
     let mut action = None;
     unsafe {
@@ -41,20 +41,20 @@ pub fn alpha_beta_action(state: &State, depth: u8, timer: &Timer, logging: bool)
         let time = Timer::new(&Duration::ZERO);
         let mut alpha = f32::MIN;
         let mut best: Option<Action> = None;
-        for action in state.valid_actions() {
+        for action in state.valid_actions_with_move_ordering() {
             let next = state.advanced(&action);
-            let score = -alpha_beta(&next, f32::MIN, -alpha, 0, depth, &timer);
-            if score == SCORE_WIN {
+            let eval = -alpha_beta(&next, f32::MIN, -alpha, 0, depth, &timer);
+            if eval == SCORE_WIN {
                 return Some(action);
             }
             if timer.elapsed() {
                 return None;
             }
             if logging {
-                log!("{}-{}, {}, {:.8}, {:.8}, {:.8}, {:?}", action.b, action.s, action.anywhere, action.score, score, calc_score(&next), time.time());
+                log!("{}-{}, {}, {:.8}, {:.8}, {:.8}, {:?}", action.b, action.s, action.anywhere, action.eval, eval, calc_eval(&next), time.time());
             }
-            if alpha < score {
-                alpha = score;
+            if alpha < eval {
+                alpha = eval;
                 best = Some(action);
             }
         }
@@ -67,7 +67,7 @@ pub fn alpha_beta_action(state: &State, depth: u8, timer: &Timer, logging: bool)
 
 pub fn alpha_beta(state: &State, mut alpha: f32, beta: f32, depth: u8, max_depth: u8, timer: &Timer) -> f32 {
     if depth == max_depth || state.finished() {
-        return calc_score(state);
+        return calc_eval(state);
     }
     if depth <= 3 && timer.elapsed() {
         return 0.;
@@ -78,19 +78,19 @@ pub fn alpha_beta(state: &State, mut alpha: f32, beta: f32, depth: u8, max_depth
             return TRANSPOSE[masked_hash];
         }
     }
-    let mut max_score = f32::MIN;
-    for action in state.valid_actions() {
+    let mut max_eval = f32::MIN;
+    for action in state.valid_actions_with_move_ordering() {
         let next = state.advanced(&action);
-        let score = -alpha_beta(&next, -beta, -alpha, depth + 1, max_depth, timer);
-        if score >= beta {
-            return score;
+        let eval = -alpha_beta(&next, -beta, -alpha, depth + 1, max_depth, timer);
+        if eval >= beta {
+            return eval;
         }
-        alpha = alpha.max(score);
-        max_score = max_score.max(score);
+        alpha = alpha.max(eval);
+        max_eval = max_eval.max(eval);
     }
     unsafe {
         TRANSPOSE_HASH[masked_hash] = state.hash;
-        TRANSPOSE[masked_hash] = max_score;
+        TRANSPOSE[masked_hash] = max_eval;
     }
-    max_score
+    max_eval
 }

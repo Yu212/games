@@ -1,50 +1,48 @@
-import React, {useState, useEffect} from "react"
-import {Cell, Turn, Grid} from "rust"
-import {WorkerType} from "./wasm.worker.ts";
+import React, {useState} from "react";
+import {Cell, Turn} from "rust";
 import Konva from "konva";
 import {Circle, Group, Layer, Line, Rect, Stage, Text} from "react-konva";
+import {Game} from "./UltimateTicTacToe.tsx";
 
-const fix = (broken, clz) => {
-    const obj = Object.create(clz.prototype);
-    obj.__wbg_ptr = broken.__wbg_ptr;
-    return obj;
-}
-
-const UltimateTicTacToeCanvas: React.FC<{ worker: WorkerType }> = ({ worker }) => {
-    const [grid, setGrid] = useState<Grid>(() => Grid.initial_grid());
+const UltimateTicTacToeCanvas: React.FC<{ game: Game, showEvals: boolean, advance: (game: Game, cell: Cell) => void }> = ({ game, showEvals, advance }) => {
     const [hoveredCell, setHoveredCell] = useState<[number, number] | null>(null);
 
+    const canAdvanceByPlayer = game.grid.winner === undefined && !game.calculating_evals && game.grid.is_player_turn;
+
+    console.log("canvas reload");
     const onClick = (event: Konva.KonvaEventObject<MouseEvent>) => {
-        if (grid.winner !== undefined || !grid.is_player_turn) {
+        if (!canAdvanceByPlayer) {
             return;
         }
         const attrs = event.target.attrs;
-        console.log("clicked! %d %d %o", attrs.b, attrs.s);
+        console.log("clicked! %d %d %o", attrs.b, attrs.s, event.target);
         const cell = new Cell(attrs.b, attrs.s);
-        if (grid.is_valid_action(cell)) {
-            setGrid(oldGrid => oldGrid.play(cell));
+        if (game.grid.is_valid_action(cell)) {
+            advance(game, cell);
         }
     };
 
-    useEffect(() => {
-        if (grid.winner !== undefined || grid.is_player_turn) {
-            return;
+    let bestEval = -Infinity;
+    if (showEvals && game.evals) {
+        for (let b = 0; b < 9; b++) {
+            for (let s = 0; s < 9; s++) {
+                if (game.grid.is_valid_action(new Cell(b, s))) {
+                    bestEval = Math.max(bestEval, game.evals[b * 9 + s]);
+                }
+            }
         }
-        console.log("ai thinking...");
-        worker.aiAction(grid).then(obj => {
-            const cell = fix(obj, Cell);
-            console.log("ai played: %o %o", cell.b, cell.s);
-            setGrid(oldGrid => oldGrid.play(cell));
-        });
-    }, [grid, worker]);
+    }
 
     const width = 1280;
     const height = 720;
     const size = Math.min(width, height) - 100;
-    const infoText =
-            grid.winner === Turn.Player ? "Player Win!" :
-            grid.winner === Turn.Ai ? "AI Win!" :
-            grid.is_player_turn ? "Player Turn" : "AI Turn";
+    let infoText =
+        game.grid.winner === Turn.Player ? "Player Win!" :
+        game.grid.winner === Turn.Ai ? "AI Win!" :
+        game.grid.is_player_turn ? "Player Turn" : "AI Turn";
+    if (game.calculating_evals) {
+        infoText += "\nevals calculating...";
+    }
     return (
         <Stage width={width} height={height}>
             <Layer>
@@ -58,7 +56,7 @@ const UltimateTicTacToeCanvas: React.FC<{ worker: WorkerType }> = ({ worker }) =
                 <Rect x={260} y={40} width={20} height={720} fill="#f9b700" />
                 <Rect x={520} y={40} width={20} height={720} fill="#f9b700" />
                 {Array.from({ length: 9 }, (_, b) => {
-                    const bigCell = grid.get_big_cell(b);
+                    const bigCell = game.grid.get_big_cell(b);
                     const bigX = (b % 3 | 0) * 260 + 40;
                     const bigY = (b / 3 | 0) * 260 + 40;
                     if (bigCell === Turn.Player) {
@@ -69,7 +67,8 @@ const UltimateTicTacToeCanvas: React.FC<{ worker: WorkerType }> = ({ worker }) =
                             <Line points={[28, 172, 172, 28]} strokeWidth={32} stroke="#f2b213" />
                         </Group>
                     } else {
-                        const boardColor = grid.last_big === undefined || grid.last_big === b ? "#ffffff" : "#848484";
+                        const isBoardActive = game.grid.winner === undefined && (game.grid.last_big === undefined || game.grid.last_big === b);
+                        const boardColor = isBoardActive ? "#ffffff" : "#848484";
                         return <Group key={b} x={bigX} y={bigY}>
                             <Group>
                                 <Rect x={0} y={60} width={200} height={10} fill={boardColor} />
@@ -81,7 +80,7 @@ const UltimateTicTacToeCanvas: React.FC<{ worker: WorkerType }> = ({ worker }) =
                                 {Array.from({ length: 9 }, (_, s) => {
                                     const smallX = (s % 3 | 0) * 70;
                                     const smallY = (s / 3 | 0) * 70;
-                                    const smallCell = grid.get_small_cell(b, s);
+                                    const smallCell = game.grid.get_small_cell(b, s);
                                     if (smallCell === Turn.Player) {
                                         return <Circle key={s} x={smallX+30} y={smallY+30} radius={19} strokeWidth={8} stroke="#22a1e4" />
                                     } else if (smallCell === Turn.Ai) {
@@ -90,10 +89,22 @@ const UltimateTicTacToeCanvas: React.FC<{ worker: WorkerType }> = ({ worker }) =
                                             <Line points={[12, 48, 48, 12]} strokeWidth={8} stroke="#f2b213" />
                                         </Group>
                                     } else {
-                                        const hovered = hoveredCell !== null && hoveredCell[0] === b && hoveredCell[1] === s;
-                                        const color = grid.winner === undefined && grid.is_player_turn && hovered ? "#303030" : "#000000";
-                                        return <Rect key={s} attrs={{ b, s }} x={smallX} y={smallY} width={60} height={60} fill={color}
-                                                     onClick={onClick} onMouseEnter={() => setHoveredCell([b, s])} onMouseLeave={() => setHoveredCell(null)} />
+                                        const cell = new Cell(b, s);
+                                        const canHover = canAdvanceByPlayer && game.grid.is_valid_action(cell);
+                                        const hovered = canHover && hoveredCell !== null && hoveredCell[0] === b && hoveredCell[1] === s;
+                                        const color = game.grid.winner === undefined && game.grid.is_player_turn && hovered ? "#303030" : "#000000";
+                                        const showEval = canHover && showEvals && game.evals;
+                                        if (canHover) {
+                                            return <Group key={s} x={smallX} y={smallY} >
+                                                <Rect width={60} height={60} fill={color} attrs={{ b, s }} onClick={onClick} onMouseEnter={() => setHoveredCell([b, s])} onMouseLeave={() => setHoveredCell(null)} />
+                                                {showEval && <Text text={game.evals[b * 9 + s].toFixed(2)} fill={bestEval == game.evals[b * 9 + s] ? "red" : "white"} align="center" verticalAlign="middle" width={60} height={60} fontSize={20} attrs={{ b, s }} onClick={onClick} onMouseEnter={() => setHoveredCell([b, s])} onMouseLeave={() => setHoveredCell(null)} />}
+                                            </Group>
+                                        } else {
+                                            return <Group key={s} x={smallX} y={smallY} >
+                                                <Rect width={60} height={60} fill={color} attrs={{ b, s }} />
+                                                {showEval && <Text text={game.evals[b * 9 + s].toFixed(2)} fill={bestEval == game.evals[b * 9 + s] ? "red" : "white"} align="center" verticalAlign="middle" width={60} height={60} fontSize={20} attrs={{ b, s }} />}
+                                            </Group>
+                                        }
                                     }
                                 })}
                             </Group>
@@ -103,6 +114,6 @@ const UltimateTicTacToeCanvas: React.FC<{ worker: WorkerType }> = ({ worker }) =
             </Layer>
         </Stage>
     );
-}
+};
 
 export default UltimateTicTacToeCanvas;

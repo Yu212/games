@@ -40,13 +40,13 @@ pub(crate) static mut ZOBRIST_BIG_O: [u64; 9] = [0; 9];
 pub(crate) static mut ZOBRIST_BIG_X: [u64; 9] = [0; 9];
 pub(crate) static mut ZOBRIST_BIG_DRAW: [u64; 9] = [0; 9];
 static mut IS_WIN: [bool; 0x200] = [false; 0x200];
-static mut POPCNT: [u32; 0x200] = [0; 0x200];
+static mut POPCNT: [u16; 0x200] = [0; 0x200];
 
 pub fn init() {
     let is_win = |table| table & 0b100100100 == 0b100100100 || table & 0b010010010 == 0b010010010 ||
-            table & 0b001001001 == 0b001001001 || table & 0b111000000 == 0b111000000 ||
-            table & 0b000111000 == 0b000111000 || table & 0b000000111 == 0b000000111 ||
-            table & 0b100010001 == 0b100010001 || table & 0b001010100 == 0b001010100;
+        table & 0b001001001 == 0b001001001 || table & 0b111000000 == 0b111000000 ||
+        table & 0b000111000 == 0b000111000 || table & 0b000000111 == 0b000000111 ||
+        table & 0b100010001 == 0b100010001 || table & 0b001010100 == 0b001010100;
     unsafe {
         let mut rng = StdRng::seed_from_u64(0);
         for bs in 0..81 {
@@ -58,21 +58,21 @@ pub fn init() {
             ZOBRIST_BIG_X[b] = rng.next_u64();
             ZOBRIST_BIG_DRAW[b] = rng.next_u64();
         }
-        for o in (0..0x200 as u16).rev() {
+        for o in (0..0x200).rev() {
             for b in 0..9 {
                 for s in 0..9 {
                     if o >> s & 1 == 1 {
-                        ZOBRIST_RESET_O[o as usize * 9 + b] ^= ZOBRIST_O[b * 9 + s];
-                        ZOBRIST_RESET_X[o as usize * 9 + b] ^= ZOBRIST_X[b * 9 + s];
+                        ZOBRIST_RESET_O[o * 9 + b] ^= ZOBRIST_O[b * 9 + s];
+                        ZOBRIST_RESET_X[o * 9 + b] ^= ZOBRIST_X[b * 9 + s];
                     }
                 }
             }
-            POPCNT[o as usize] = o.count_ones();
+            POPCNT[o] = o.count_ones() as u16;
             let mut x = o ^ 0x1ff;
             loop {
-                let mask = (o as usize) << 9 | x as usize;
+                let mask = o << 9 | x;
                 if is_win(o) {
-                    IS_WIN[o as usize] = true;
+                    IS_WIN[o] = true;
                     SCORE[mask] = 1.;
                 } else if is_win(x) {
                     SCORE[mask] = -1.;
@@ -150,16 +150,16 @@ fn in_action() -> Option<Action> {
         None
     } else {
         Some(Action {
-            b: (y / 3 * 3 + x / 3) as u8,
-            s: (y % 3 * 3 + x % 3) as u8,
+            b: (y / 3 * 3 + x / 3) as u16,
+            s: (y % 3 * 3 + x % 3) as u16,
             anywhere: false,
-            score: 0.,
+            eval: 0.,
         })
     }
 }
 
 #[inline]
-pub fn get_small(table: u128, b: u8) -> u16 {
+pub fn get_small(table: u128, b: u16) -> u16 {
     (table >> b * 9 & 0b111111111) as u16
 }
 
@@ -169,16 +169,16 @@ pub fn is_win(table: u16) -> bool {
 }
 
 #[inline]
-pub fn popcount(table: u16) -> u32 {
+pub fn popcount(table: u16) -> u16 {
     return unsafe { POPCNT[table as usize] };
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Action {
-    pub b: u8,
-    pub s: u8,
+    pub b: u16,
+    pub s: u16,
     pub anywhere: bool,
-    pub score: f32,
+    pub eval: f32,
 }
 
 impl fmt::Display for Action {
@@ -194,7 +194,7 @@ pub struct State {
     pub big_win: u16,
     pub big_lose: u16,
     pub big_draw: u16,
-    pub last_big: i8,
+    pub last_big: u16,
     pub hash: u64,
     pub turn: bool,
 }
@@ -210,7 +210,7 @@ impl State {
             big_win: 0,
             big_lose: 0,
             big_draw: 0,
-            last_big: -1,
+            last_big: 9,
             hash: 0,
             turn: false,
         }
@@ -231,7 +231,7 @@ impl State {
             big_draw |= 1 << action.b;
         }
         let free_big = (big_win | big_lose | big_draw) >> action.s & 1 == 1;
-        let last_big = if free_big { -1 } else { action.s as i8 };
+        let last_big = if free_big { 9 } else { action.s };
         State {
             small_win,
             small_lose,
@@ -259,7 +259,7 @@ impl State {
             big_draw |= 1 << action.b;
         }
         let free_big = (big_win | big_lose | big_draw) >> action.s & 1 == 1;
-        let last_big = if free_big { -1 } else { action.s as i8 };
+        let last_big = if free_big { 9 } else { action.s };
         self.small_win = small_win;
         self.small_lose = small_lose;
         self.big_win = big_win;
@@ -270,12 +270,12 @@ impl State {
         self.turn = turn;
     }
 
-    pub fn advanced_hash(&self, b: u8, s: u8) -> u64 {
+    pub fn advanced_hash(&self, b: u16, s: u16) -> u64 {
         unsafe {
             let small_w = get_small(self.small_win, b);
             let small_l = get_small(self.small_lose, b);
-            let wb = small_w as usize * 9 + b as usize;
-            let lb = small_l as usize * 9 + b as usize;
+            let wb = (small_w * 9 + b) as usize;
+            let lb = (small_l * 9 + b) as usize;
             self.hash ^ if is_win(small_w | 1 << s) {
                 if self.turn {
                     ZOBRIST_RESET_O[wb] ^ ZOBRIST_RESET_X[lb] ^ ZOBRIST_BIG_O[b as usize]
@@ -298,7 +298,7 @@ impl State {
         }
     }
 
-    fn action_of(&self, b: u8, s: u8) -> Action {
+    pub fn action_of(&self, b: u16, s: u16) -> Action {
         let win = get_small(self.small_win, b);
         let lose = get_small(self.small_lose, b);
         let anywhere = (self.big_win | self.big_lose | self.big_draw) >> s & 1 == 1 || b == s && is_win(win | 1 << s) || win | lose == 0x1ff;
@@ -306,22 +306,22 @@ impl State {
             b,
             s,
             anywhere,
-            score: unsafe { SCORE[(win as usize) << 9 | lose as usize | 1 << (s + 9)] }
+            eval: 0.,
         }
     }
 
     pub fn random_action(&self) -> Action {
-        return if self.last_big != -1 {
-            let small_win = get_small(self.small_win, self.last_big as u8);
-            let small_lose = get_small(self.small_lose, self.last_big as u8);
+        return if self.last_big != 9 {
+            let small_win = get_small(self.small_win, self.last_big);
+            let small_lose = get_small(self.small_lose, self.last_big);
             let mut remain = (small_win | small_lose) ^ 0x1ff;
             let num_actions = popcount(remain) as usize;
             let mut i = rng::next() % num_actions;
             for _ in 0..i {
                 remain ^= remain & !(remain - 1);
             }
-            let s = popcount((remain & !(remain - 1)) - 1) as u8;
-            self.action_of(self.last_big as u8, s)
+            let s = popcount((remain & !(remain - 1)) - 1);
+            self.action_of(self.last_big, s)
         } else {
             let remain_big = (self.big_win | self.big_lose | self.big_draw) ^ 0x1ff;
             let remain_big_mask = (((remain_big as u128 & 0xff) * 0x101010101010101_u128 | (remain_big as u128) << 64) & 0x1008040201008040201_u128) * 0x1ff;
@@ -331,25 +331,24 @@ impl State {
             for _ in 0..i {
                 remain ^= remain & !(remain - 1);
             }
-            let bs = remain.trailing_zeros();
-            self.action_of((bs / 9) as u8, (bs % 9) as u8)
+            let bs = remain.trailing_zeros() as u16;
+            self.action_of(bs / 9, bs % 9)
         }
     }
 
     pub fn valid_actions(&self) -> Vec<Action> {
-        if self.last_big != -1 {
-            let small_win = get_small(self.small_win, self.last_big as u8);
-            let small_lose = get_small(self.small_lose, self.last_big as u8);
+        if self.last_big != 9 {
+            let small_win = get_small(self.small_win, self.last_big);
+            let small_lose = get_small(self.small_lose, self.last_big);
             let mut remain = (small_win | small_lose) ^ 0x1ff;
             let num_actions = popcount(remain) as usize;
             let mut actions = Vec::with_capacity(num_actions);
             while remain > 0 {
                 let bit = remain & !(remain - 1);
-                let s = popcount(bit - 1) as u8;
-                actions.push(self.action_of(self.last_big as u8, s));
+                let s = popcount(bit - 1);
+                actions.push(self.action_of(self.last_big, s));
                 remain ^= bit;
             }
-            actions.sort_unstable_by(|a, b| a.anywhere.cmp(&b.anywhere).then(b.score.partial_cmp(&a.score).unwrap()));
             actions
         } else {
             let remain_big = (self.big_win | self.big_lose | self.big_draw) ^ 0x1ff;
@@ -364,14 +363,27 @@ impl State {
                 let mut remain_small = (remain >> b * 9 & 0x1ff) as u16;
                 while remain_small > 0 {
                     let bit = remain_small & !(remain_small - 1);
-                    let s = popcount(bit - 1) as u8;
+                    let s = popcount(bit - 1);
                     actions.push(self.action_of(b, s));
                     remain_small ^= bit;
                 }
             }
-            actions.sort_unstable_by(|a, b| a.anywhere.cmp(&b.anywhere).then(b.score.partial_cmp(&a.score).unwrap()));
             actions
         }
+    }
+
+    pub fn valid_actions_with_move_ordering(&self) -> Vec<Action> {
+        let mut actions = self.valid_actions();
+        for mut action in &mut actions {
+            let win = get_small(self.small_win, action.b);
+            let lose = get_small(self.small_lose, action.b);
+            action.eval = unsafe { SCORE[(win as usize) << 9 | (lose as usize) | 1 << (action.s + 9)] } + if action.anywhere { -1. } else { 0. };
+        }
+        actions.sort_unstable_by(|a, b| b.eval.partial_cmp(&a.eval).unwrap());
+        if actions.len() >= 3 {
+            actions.swap(0, 1);
+        }
+        actions
     }
 
     pub fn finished(&self) -> bool {
@@ -398,7 +410,7 @@ impl State {
     }
 }
 
-pub fn calc_score(state: &State) -> f32 {
+pub fn calc_eval(state: &State) -> f32 {
     if is_win(state.big_win) {
         return SCORE_WIN;
     }
@@ -416,19 +428,19 @@ pub fn calc_score(state: &State) -> f32 {
             0.
         }
     }
-    let mut score = 0.;
+    let mut eval = 0.;
     let mut draw_mask = 0_u16;
-    let mut small_scores = [0.; 9];
-    score += unsafe { SCORE[(state.big_win as usize) << 9 | state.big_lose as usize] };
+    let mut small_evals = [0.; 9];
+    eval += unsafe { SCORE[(state.big_win as usize) << 9 | state.big_lose as usize] };
     for i in 0..9 {
-        let win = get_small(state.small_win, i as u8);
-        let lose = get_small(state.small_lose, i as u8);
+        let win = get_small(state.small_win, i as u16);
+        let lose = get_small(state.small_lose, i as u16);
         if !is_win(win ^ 0x1ff) && !is_win(lose ^ 0x1ff) {
             draw_mask |= 1 << i;
         } else {
-            small_scores[i] = unsafe { SCORE[(win as usize) << 9 | lose as usize] };
-            score += small_scores[i] * [3., 2., 3., 2., 4., 2., 3., 2., 3.][i];
-            small_scores[i] = (small_scores[i] + 1.) / 2.;
+            small_evals[i] = unsafe { SCORE[(win as usize) << 9 | lose as usize] };
+            eval += small_evals[i] * [3., 2., 3., 2., 4., 2., 3., 2., 3.][i];
+            small_evals[i] = (small_evals[i] + 1.) / 2.;
         }
     }
     #[inline]
@@ -437,29 +449,29 @@ pub fn calc_score(state: &State) -> f32 {
         let p2 = (1. - a) * (1. - b) * (1. - c);
         return if p1 > p2 { p1 } else { -p2 }
     }
-    let line_scores = [
-        if draw_mask & 0b000000111 == 0 { calc(small_scores[0], small_scores[1], small_scores[2]) } else { 0. },
-        if draw_mask & 0b000111000 == 0 { calc(small_scores[3], small_scores[4], small_scores[5]) } else { 0. },
-        if draw_mask & 0b111000000 == 0 { calc(small_scores[6], small_scores[7], small_scores[8]) } else { 0. },
-        if draw_mask & 0b001001001 == 0 { calc(small_scores[0], small_scores[3], small_scores[6]) } else { 0. },
-        if draw_mask & 0b010010010 == 0 { calc(small_scores[1], small_scores[4], small_scores[7]) } else { 0. },
-        if draw_mask & 0b100100100 == 0 { calc(small_scores[2], small_scores[5], small_scores[8]) } else { 0. },
-        if draw_mask & 0b100010001 == 0 { calc(small_scores[0], small_scores[4], small_scores[8]) } else { 0. },
-        if draw_mask & 0b001010100 == 0 { calc(small_scores[2], small_scores[4], small_scores[6]) } else { 0. }
+    let line_evals = [
+        if draw_mask & 0b000000111 == 0 { calc(small_evals[0], small_evals[1], small_evals[2]) } else { 0. },
+        if draw_mask & 0b000111000 == 0 { calc(small_evals[3], small_evals[4], small_evals[5]) } else { 0. },
+        if draw_mask & 0b111000000 == 0 { calc(small_evals[6], small_evals[7], small_evals[8]) } else { 0. },
+        if draw_mask & 0b001001001 == 0 { calc(small_evals[0], small_evals[3], small_evals[6]) } else { 0. },
+        if draw_mask & 0b010010010 == 0 { calc(small_evals[1], small_evals[4], small_evals[7]) } else { 0. },
+        if draw_mask & 0b100100100 == 0 { calc(small_evals[2], small_evals[5], small_evals[8]) } else { 0. },
+        if draw_mask & 0b100010001 == 0 { calc(small_evals[0], small_evals[4], small_evals[8]) } else { 0. },
+        if draw_mask & 0b001010100 == 0 { calc(small_evals[2], small_evals[4], small_evals[6]) } else { 0. }
     ];
-    score += line_scores[0] + line_scores[1] + line_scores[2] + line_scores[3] +
-        line_scores[4] + line_scores[5] + line_scores[6] + line_scores[7];
-    let min = line_scores[0].min(line_scores[1]).min(line_scores[2]).min(line_scores[3])
-        .min(line_scores[4]).min(line_scores[5]).min(line_scores[6]).min(line_scores[7]);
-    let max = line_scores[0].max(line_scores[1]).max(line_scores[2]).max(line_scores[3])
-        .max(line_scores[4]).max(line_scores[5]).max(line_scores[6]).max(line_scores[7]);
+    eval += 7. * (line_evals[0] + line_evals[1] + line_evals[2] + line_evals[3] +
+        line_evals[4] + line_evals[5] + line_evals[6] + line_evals[7]);
+    let min = line_evals[0].min(line_evals[1]).min(line_evals[2]).min(line_evals[3])
+        .min(line_evals[4]).min(line_evals[5]).min(line_evals[6]).min(line_evals[7]);
+    let max = line_evals[0].max(line_evals[1]).max(line_evals[2]).max(line_evals[3])
+        .max(line_evals[4]).max(line_evals[5]).max(line_evals[6]).max(line_evals[7]);
     if min < 0. {
-        score += min * 7.;
+        eval += min * 7.;
     }
     if max > 0. {
-        score += max * 7.;
+        eval += max * 7.;
     }
-    score
+    eval
 }
 
 mod rng {

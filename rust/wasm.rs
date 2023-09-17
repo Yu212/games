@@ -20,6 +20,7 @@ pub mod wasm {
         pub fn log(s: &str);
 
         #[no_mangle]
+        #[warn(non_upper_case_globals)]
         static performance: web_sys::Performance;
     }
 
@@ -28,6 +29,10 @@ pub mod wasm {
     impl Timer {
         pub fn new(time_limit: &Duration) -> Self {
             unsafe { Timer(performance.now() + time_limit.as_secs_f64() * 1000.) }
+        }
+
+        pub fn infinity() -> Self {
+            Timer(f64::MAX)
         }
 
         pub fn elapsed(&self) -> bool {

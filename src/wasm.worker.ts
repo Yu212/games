@@ -9,6 +9,10 @@ const module = {
     aiAction: (grid: Grid): Cell => {
         grid = fix(grid, Grid);
         return grid.ai_action();
+    },
+    calcEvals: (grid: Grid) => {
+        grid = fix(grid, Grid);
+        return grid.calc_all_evals();
     }
 };
 

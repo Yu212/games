@@ -5,7 +5,7 @@ use eprintln as log;
 
 pub fn calc_action(state: &State, timer: &Timer, logging: bool) -> Action {
     if state.small_lose | state.small_win == 0 {
-        return Action { b: 4, s: 4, anywhere: false, score: 0. };
+        return Action { b: 4, s: 4, anywhere: false, eval: 0. };
     }
     let mut root = Node::new(state.clone());
     root.expand();

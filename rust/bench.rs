@@ -14,7 +14,7 @@ fn main() {
     let mut n = 0;
     let mut w = 0;
     for _ in 0..50 {
-        let player_1: fn(&State) -> Action = |state| alpha_beta_action(state, &Timer::new(&Duration::from_millis(50)), false);
+        let player_1: fn(&State) -> Action = |state| alpha_beta_action(state, &Timer::new(&Duration::from_millis(50)), true);
         let player_2: fn(&State) -> Action = |state| mcts_action(state, &Timer::new(&Duration::from_millis(250)), false);
         n += 2;
         println!("{} {:3} tries {:5.1} %", match play(&player_1, &player_2) {
@@ -51,35 +51,6 @@ fn play(player_1: &fn(&State) -> Action, player_2: &fn(&State) -> Action) -> Win
             _ => continue,
         }
     }
-}
-
-pub fn hashing(state: &State) -> u64 {
-    let mut hash = 0;
-    let (zobrist_win, zobrist_lose, zobrist_big_win, zobrist_big_lose, zobrist_big_draw) = unsafe {
-        if state.turn {
-            (ZOBRIST_O, ZOBRIST_X, ZOBRIST_BIG_O, ZOBRIST_BIG_X, ZOBRIST_BIG_DRAW)
-        } else {
-            (ZOBRIST_X, ZOBRIST_O, ZOBRIST_BIG_X, ZOBRIST_BIG_O, ZOBRIST_BIG_DRAW)
-        }
-    };
-    for b in 0..9 {
-        if state.big_win >> b & 1 == 1 {
-            hash ^= zobrist_big_win[b];
-        } else if state.big_lose >> b & 1 == 1 {
-            hash ^= zobrist_big_lose[b];
-        } else if state.big_draw >> b & 1 == 1 {
-            hash ^= zobrist_big_draw[b];
-        } else {
-            for s in 0..9 {
-                if state.small_win >> (b * 9 + s) & 1 == 1 {
-                    hash ^= zobrist_win[b * 9 + s];
-                } else if state.small_lose >> (b * 9 + s) & 1 == 1 {
-                    hash ^= zobrist_lose[b * 9 + s];
-                }
-            }
-        }
-    }
-    hash
 }
 
 #[derive(Debug)]
