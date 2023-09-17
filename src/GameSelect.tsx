@@ -11,6 +11,6 @@ const GameSelect: React.FC = () => {
             </ul>
         </>
     );
-}
+};
 
 export default GameSelect;
