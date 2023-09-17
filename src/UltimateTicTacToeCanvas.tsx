@@ -101,8 +101,8 @@ const UltimateTicTacToeCanvas: React.FC<{ game: Game, showEvals: boolean, advanc
                                             </Group>
                                         } else {
                                             return <Group key={s} x={smallX} y={smallY} >
-                                                <Rect width={60} height={60} fill={color} attrs={{ b, s }} />
-                                                {showEval && <Text text={game.evals[b * 9 + s].toFixed(2)} fill={bestEval == game.evals[b * 9 + s] ? "red" : "white"} align="center" verticalAlign="middle" width={60} height={60} fontSize={20} attrs={{ b, s }} />}
+                                                <Rect width={60} height={60} fill={color} />
+                                                {showEval && <Text text={game.evals[b * 9 + s].toFixed(2)} fill={bestEval == game.evals[b * 9 + s] ? "red" : "white"} align="center" verticalAlign="middle" width={60} height={60} fontSize={20} />}
                                             </Group>
                                         }
                                     }

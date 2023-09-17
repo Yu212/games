@@ -96,7 +96,7 @@ impl Grid {
 
     pub fn ai_action(&self) -> Cell {
         let state = self.to_state();
-        let timer = Timer::new(&Duration::from_millis(100));
+        let timer = Timer::new(&Duration::from_millis(1000));
         let action = calc_action(&state, &timer, false);
         Cell { b: action.b as usize, s: action.s as usize }
     }
