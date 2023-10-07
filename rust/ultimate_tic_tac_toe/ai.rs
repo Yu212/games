@@ -31,7 +31,8 @@ impl Timer {
     }
 }
 
-pub(crate) static mut SCORE: [f32; 0x40000] = [0.; 0x40000];
+pub(crate) static mut WIN_PROB: [f32; 0x40000] = [0.; 0x40000];
+pub(crate) static mut LOSE_PROB: [f32; 0x40000] = [0.; 0x40000];
 pub(crate) static mut ZOBRIST_O: [u64; 81] = [0; 81];
 pub(crate) static mut ZOBRIST_X: [u64; 81] = [0; 81];
 pub(crate) static mut ZOBRIST_RESET_O: [u64; 0x1200] = [0; 0x1200];
@@ -73,11 +74,14 @@ pub fn init() {
                 let mask = o << 9 | x;
                 if is_win(o) {
                     IS_WIN[o] = true;
-                    SCORE[mask] = 1.;
+                    WIN_PROB[mask] = 1.;
+                    LOSE_PROB[mask] = 0.;
                 } else if is_win(x) {
-                    SCORE[mask] = -1.;
+                    WIN_PROB[mask] = 0.;
+                    LOSE_PROB[mask] = 1.;
                 } else if !is_win(o ^ 0x1ff) && !is_win(x ^ 0x1ff) {
-                    SCORE[mask] = 0.;
+                    WIN_PROB[mask] = 0.;
+                    LOSE_PROB[mask] = 0.;
                 } else {
                     let mut valid_me = Vec::new();
                     let mut valid_op = Vec::new();
@@ -85,22 +89,23 @@ pub fn init() {
                         if (o | x) >> i & 1 == 1 {
                             continue;
                         }
-                        valid_me.push(SCORE[mask | 1 << i + 9]);
-                        valid_op.push(SCORE[mask | 1 << i]);
+                        valid_me.push(mask | 1 << i + 9);
+                        valid_op.push(mask | 1 << i);
                     }
-                    valid_me.sort_by(|a, b| b.partial_cmp(a).unwrap());
-                    valid_op.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                    let mut value_me = 0.;
-                    let mut value_op = 0.;
+                    valid_me.sort_by(|&a, &b| (WIN_PROB[b] - LOSE_PROB[b]).partial_cmp(&(WIN_PROB[a] - LOSE_PROB[a])).unwrap());
+                    valid_op.sort_by(|&a, &b| (WIN_PROB[a] - LOSE_PROB[a]).partial_cmp(&(WIN_PROB[b] - LOSE_PROB[b])).unwrap());
+                    let mut win_prob = 0.;
+                    let mut lose_prob = 0.;
                     let mut w = 1.;
                     let mut w_sum = 0.;
-                    for (a, b) in valid_me.iter().zip(valid_op.iter()) {
-                        value_me += a * w;
-                        value_op += b * w;
+                    for (&a, &b) in valid_me.iter().zip(valid_op.iter()) {
+                        win_prob += (WIN_PROB[a] + WIN_PROB[b]) * w;
+                        lose_prob += (LOSE_PROB[a] + LOSE_PROB[b]) * w;
                         w_sum += w;
                         w /= 4.;
                     }
-                    SCORE[mask] = ((value_me + value_op) / w_sum / 2. as f32).clamp(-1., 1.);
+                    WIN_PROB[mask] = win_prob / w_sum / 2. as f32;
+                    LOSE_PROB[mask] = lose_prob / w_sum / 2. as f32;
                 }
                 if x == 0 {
                     break;
@@ -377,7 +382,8 @@ impl State {
         for mut action in &mut actions {
             let win = get_small(self.small_win, action.b);
             let lose = get_small(self.small_lose, action.b);
-            action.eval = unsafe { SCORE[(win as usize) << 9 | (lose as usize) | 1 << (action.s + 9)] } + if action.anywhere { -1. } else { 0. };
+            let bit = (win as usize) << 9 | (lose as usize) | 1 << (action.s + 9);
+            action.eval = unsafe { WIN_PROB[bit] - LOSE_PROB[bit] } + if action.anywhere { -1. } else { 0. };
         }
         actions.sort_unstable_by(|a, b| b.eval.partial_cmp(&a.eval).unwrap());
         if actions.len() >= 3 {
@@ -429,35 +435,27 @@ pub fn calc_eval(state: &State) -> f32 {
         }
     }
     let mut eval = 0.;
-    let mut draw_mask = 0_u16;
-    let mut small_evals = [0.; 9];
-    eval += unsafe { SCORE[(state.big_win as usize) << 9 | state.big_lose as usize] };
+    let mut small_win_probs = [0.; 9];
+    let mut small_lose_probs = [0.; 9];
+    let big = (state.big_win as usize) << 9 | state.big_lose as usize;
+    eval += unsafe { WIN_PROB[big] - LOSE_PROB[big] };
     for i in 0..9 {
         let win = get_small(state.small_win, i as u16);
         let lose = get_small(state.small_lose, i as u16);
-        if !is_win(win ^ 0x1ff) && !is_win(lose ^ 0x1ff) {
-            draw_mask |= 1 << i;
-        } else {
-            small_evals[i] = unsafe { SCORE[(win as usize) << 9 | lose as usize] };
-            eval += small_evals[i] * [3., 2., 3., 2., 4., 2., 3., 2., 3.][i];
-            small_evals[i] = (small_evals[i] + 1.) / 2.;
-        }
-    }
-    #[inline]
-    fn calc(a: f32, b: f32, c: f32) -> f32 {
-        let p1 = a * b * c;
-        let p2 = (1. - a) * (1. - b) * (1. - c);
-        return if p1 > p2 { p1 } else { -p2 }
+        let bit = (win as usize) << 9 | lose as usize;
+        small_win_probs[i] = unsafe { WIN_PROB[bit] };
+        small_lose_probs[i] = unsafe { LOSE_PROB[bit] };
+        eval += (small_win_probs[i] - small_lose_probs[i]) * [3., 2., 3., 2., 4., 2., 3., 2., 3.][i];
     }
     let line_evals = [
-        if draw_mask & 0b000000111 == 0 { calc(small_evals[0], small_evals[1], small_evals[2]) } else { 0. },
-        if draw_mask & 0b000111000 == 0 { calc(small_evals[3], small_evals[4], small_evals[5]) } else { 0. },
-        if draw_mask & 0b111000000 == 0 { calc(small_evals[6], small_evals[7], small_evals[8]) } else { 0. },
-        if draw_mask & 0b001001001 == 0 { calc(small_evals[0], small_evals[3], small_evals[6]) } else { 0. },
-        if draw_mask & 0b010010010 == 0 { calc(small_evals[1], small_evals[4], small_evals[7]) } else { 0. },
-        if draw_mask & 0b100100100 == 0 { calc(small_evals[2], small_evals[5], small_evals[8]) } else { 0. },
-        if draw_mask & 0b100010001 == 0 { calc(small_evals[0], small_evals[4], small_evals[8]) } else { 0. },
-        if draw_mask & 0b001010100 == 0 { calc(small_evals[2], small_evals[4], small_evals[6]) } else { 0. }
+        small_win_probs[0] * small_win_probs[1] * small_win_probs[2] - small_lose_probs[0] * small_lose_probs[1] * small_lose_probs[2],
+        small_win_probs[3] * small_win_probs[4] * small_win_probs[5] - small_lose_probs[3] * small_lose_probs[4] * small_lose_probs[5],
+        small_win_probs[6] * small_win_probs[7] * small_win_probs[8] - small_lose_probs[6] * small_lose_probs[7] * small_lose_probs[8],
+        small_win_probs[0] * small_win_probs[3] * small_win_probs[6] - small_lose_probs[0] * small_lose_probs[3] * small_lose_probs[6],
+        small_win_probs[1] * small_win_probs[4] * small_win_probs[7] - small_lose_probs[1] * small_lose_probs[4] * small_lose_probs[7],
+        small_win_probs[2] * small_win_probs[5] * small_win_probs[8] - small_lose_probs[2] * small_lose_probs[5] * small_lose_probs[8],
+        small_win_probs[0] * small_win_probs[4] * small_win_probs[8] - small_lose_probs[0] * small_lose_probs[4] * small_lose_probs[8],
+        small_win_probs[2] * small_win_probs[4] * small_win_probs[6] - small_lose_probs[2] * small_lose_probs[4] * small_lose_probs[6]
     ];
     eval += 7. * (line_evals[0] + line_evals[1] + line_evals[2] + line_evals[3] +
         line_evals[4] + line_evals[5] + line_evals[6] + line_evals[7]);
@@ -465,12 +463,8 @@ pub fn calc_eval(state: &State) -> f32 {
         .min(line_evals[4]).min(line_evals[5]).min(line_evals[6]).min(line_evals[7]);
     let max = line_evals[0].max(line_evals[1]).max(line_evals[2]).max(line_evals[3])
         .max(line_evals[4]).max(line_evals[5]).max(line_evals[6]).max(line_evals[7]);
-    if min < 0. {
-        eval += min * 7.;
-    }
-    if max > 0. {
-        eval += max * 7.;
-    }
+    eval += min * 7.;
+    eval += max * 7.;
     eval
 }
 
