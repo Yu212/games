@@ -529,6 +529,7 @@ impl fmt::Debug for State {
     }
 }
 
+#[derive(Debug)]
 pub enum MatchResult {
     Win, Lose, Draw
 }
