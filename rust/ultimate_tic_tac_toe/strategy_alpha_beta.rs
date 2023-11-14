@@ -1,10 +1,16 @@
 use std::time::Duration;
-use itertools::Itertools;
 use crate::ultimate_tic_tac_toe::ai::*;
 
 pub fn calc_action(state: &State, timer: &Timer, logging: bool) -> Action {
     if state.small_lose | state.small_win == 0 {
         return Action { b: 4, s: 4, anywhere: false, eval: 0. };
+    }
+    if state.last_big != 9 {
+        let win = get_small(state.small_win, state.last_big);
+        let lose = get_small(state.small_lose, state.last_big);
+        if win | lose == 0 {
+            return Action { b: state.last_big, s: state.last_big, anywhere: false, eval: 0. };
+        }
     }
     let mut action = None;
     for depth in 3..20 {
