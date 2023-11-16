@@ -1,4 +1,4 @@
-import reactLogo from "./assets/react.svg";
+import reactLogo from "/react.svg";
 import viteLogo from "/vite.svg";
 import "./App.css";
 import React from "react";
@@ -15,7 +15,7 @@ const Home: React.FC = () => {
                 </a>
             </div>
             <h1>Game</h1>
-            <a href="/game-select">Game Select</a>
+            <a href="./game-select">Game Select</a>
         </>
     );
 };

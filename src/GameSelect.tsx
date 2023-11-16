@@ -6,7 +6,7 @@ const GameSelect: React.FC = () => {
             <h2>Game Select</h2>
             <ul>
                 <li>
-                    <a href="/ultimate-tic-tac-toe">Ultimate Tic-Tac-Toe</a>
+                    <a href="./ultimate-tic-tac-toe">Ultimate Tic-Tac-Toe</a>
                 </li>
             </ul>
         </>

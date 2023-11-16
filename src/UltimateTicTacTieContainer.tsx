@@ -1,7 +1,8 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import WasmLoading from "./WasmLoading.tsx";
 import {wrap} from "comlink";
-import WasmWorker, {WorkerType} from "./wasm.worker.ts?worker";
+import WasmWorker from "./wasm.worker.ts?worker";
+import {WorkerType} from "./wasm.worker.ts";
 import initWasm, {Turn} from "rust";
 import UltimateTicTacToe from "./UltimateTicTacToe.tsx";
 
