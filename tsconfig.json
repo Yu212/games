@@ -14,6 +14,6 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "coi-serviceworker.js"],
+  "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
