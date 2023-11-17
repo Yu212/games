@@ -17,7 +17,7 @@ export interface Game {
     evals?: Float32Array,
 }
 
-const UltimateTicTacToe: React.FC<{ worker: WorkerType, gameId: number, firstPlayer: Turn, showEvals: boolean }> = ({ worker, gameId, firstPlayer, showEvals }) => {
+const UltimateTicTacToe: React.FC<{ worker: WorkerType, gameId: number, firstPlayer: Turn, timeLimit: number, showEvals: boolean }> = ({ worker, gameId, firstPlayer, timeLimit, showEvals }) => {
     const initializeGame = () => {
         console.log("initializeGame");
         const game = ({
@@ -95,7 +95,7 @@ const UltimateTicTacToe: React.FC<{ worker: WorkerType, gameId: number, firstPla
         }
         if (!game.grid.is_player_turn) {
             console.log("AI thinking...", ""+gameId, ""+game.grid.last_big);
-            worker.aiAction(game.grid).then(obj => {
+            worker.aiAction(game.grid, timeLimit).then(obj => {
                 const cell = fix(obj, Cell);
                 console.log("AI played: %o %o", cell.b, cell.s);
                 advance(game, cell);

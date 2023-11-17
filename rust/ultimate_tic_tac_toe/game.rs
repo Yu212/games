@@ -94,9 +94,9 @@ impl Grid {
         unreachable!();
     }
 
-    pub fn ai_action(&self) -> Cell {
+    pub fn ai_action(&self, time_limit: u32) -> Cell {
         let state = self.to_state();
-        let timer = Timer::new(&Duration::from_millis(1000));
+        let timer = Timer::new(&Duration::from_millis(time_limit as u64));
         let action = calc_action(&state, &timer, false);
         Cell { b: action.b as usize, s: action.s as usize }
     }

@@ -6,9 +6,9 @@ const module = {
         const wasm = await init(undefined, memory);
         wasm.init_ai();
     },
-    aiAction: (grid: Grid): Cell => {
+    aiAction: (grid: Grid, timeLimit: number): Cell => {
         grid = fix(grid, Grid);
-        return grid.ai_action();
+        return grid.ai_action(timeLimit);
     },
     calcEvals: (grid: Grid) => {
         grid = fix(grid, Grid);
