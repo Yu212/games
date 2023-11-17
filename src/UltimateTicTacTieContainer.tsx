@@ -12,7 +12,7 @@ const UltimateTicTacToeContainer: React.FC = () => {
     const [firstPlayer, setFirstPlayer] = useState<Turn>(Turn.Player);
     const [showEvals, setShowEvals] = useState<boolean>(false);
     const [gameId, setGameId] = useState<number>(0);
-    const [timeLimit, setTimeLimit] = useState<number>(100);
+    const [timeLimit, setTimeLimit] = useState<number>(1000);
     console.log("reload container", timeLimit);
 
     useEffect(() => {
