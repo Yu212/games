@@ -25,7 +25,7 @@ const UltimateTicTacToeContainer: React.FC = () => {
         <>
             <h2>Ultimate Tic-Tac-Toe</h2>
             {isWasmLoaded ? <>
-                <button onClick={() => setShowEvals(val => !val)}> {showEvals ? "show evals" : "hide evals"} </button>
+                <button onClick={() => setShowEvals(val => !val)}> {showEvals ? "hide evals" : "show evals"} </button>
                 <button onClick={() => setFirstPlayer(turn => turn == Turn.Player ? Turn.Ai : Turn.Player)}> {firstPlayer == Turn.Player ? "Player first" : "AI first"} </button>
                 <button onClick={() => setGameId(gameId => gameId + 1)}>Restart</button>
                 <input type="number" value={timeLimit} min="100" step="100" onChange={event => setTimeLimit(event.target.valueAsNumber)}></input>
