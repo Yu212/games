@@ -1,7 +1,7 @@
-import React, {useEffect, useMemo, useState} from "react";
+import React, {useEffect, useState} from "react";
 import UltimateTicTacToeCanvas from "./UltimateTicTacToeCanvas.tsx";
 import {WorkerType} from "./wasm.worker.ts";
-import {Cell, Turn, Grid} from "rust";
+import {Cell, Grid, Turn} from "rust";
 
 const fix = (broken, clz) => {
     const obj = Object.create(clz.prototype);
@@ -19,27 +19,21 @@ export interface Game {
 
 const UltimateTicTacToe: React.FC<{ worker: WorkerType, gameId: number, firstPlayer: Turn, timeLimit: number, showEvals: boolean }> = ({ worker, gameId, firstPlayer, timeLimit, showEvals }) => {
     const initializeGame = () => {
-        console.log("initializeGame");
-        const game = ({
+        return ({
             gameId: gameId,
             gridId: 0,
             grid: Grid.initial_grid(firstPlayer),
             calculating_evals: false,
         });
-        console.log("initialGame: ", game);
-        return game;
     };
 
     const [game, setGame] = useState<Game>(initializeGame);
-    console.log("reload");
 
     const calcEvals = (game: Game) => {
         if (game.evals) {
             return;
         }
-        console.log("eval start !!!", game.gridId);
         worker.calcEvals(game.grid).then(evals => {
-            console.log("eval end !!!");
             setGame(prev => {
                 console.log(prev.gridId, game.gridId);
                 if (prev.gridId == game.gridId) {
@@ -52,9 +46,8 @@ const UltimateTicTacToe: React.FC<{ worker: WorkerType, gameId: number, firstPla
     }
 
     const advance = (game, cell) => {
-        console.log("advance: ", game.gameId, game.gridId, game.grid);
+        console.log("advance: ", game.gameId, game.gridId);
         setGame(prev => {
-            console.log(prev.grid, game.grid, prev, game);
             const next = prev.gameId !== game.gameId || prev.gridId !== game.gridId ? prev : {
                 gameId: gameId,
                 gridId: prev.gridId + 1,
@@ -71,7 +64,7 @@ const UltimateTicTacToe: React.FC<{ worker: WorkerType, gameId: number, firstPla
 
     useEffect(() => {
         if (game.gameId < gameId) {
-            console.log("restart!", game.grid);
+            console.log("restart");
             setGame(initializeGame);
         }
     }, [gameId]);
@@ -94,7 +87,7 @@ const UltimateTicTacToe: React.FC<{ worker: WorkerType, gameId: number, firstPla
             return;
         }
         if (!game.grid.is_player_turn) {
-            console.log("AI thinking...", ""+gameId, ""+game.grid.last_big);
+            console.log("AI thinking...", gameId);
             worker.aiAction(game.grid, timeLimit).then(obj => {
                 const cell = fix(obj, Cell);
                 console.log("AI played: %o %o", cell.b, cell.s);
@@ -103,7 +96,7 @@ const UltimateTicTacToe: React.FC<{ worker: WorkerType, gameId: number, firstPla
         }
     }, [game.grid, worker]);
 
-    return <UltimateTicTacToeCanvas game={game} showEvals={showEvals} advance={advance} />;
+    return <UltimateTicTacToeCanvas width={1280} height={720} game={game} showEvals={showEvals} advance={advance} />;
 };
 
 export default UltimateTicTacToe;

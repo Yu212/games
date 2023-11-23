@@ -13,7 +13,7 @@ const UltimateTicTacToeContainer: React.FC = () => {
     const [showEvals, setShowEvals] = useState<boolean>(false);
     const [gameId, setGameId] = useState<number>(0);
     const [timeLimit, setTimeLimit] = useState<number>(1000);
-    console.log("reload container", timeLimit);
+    console.log("reload container");
 
     useEffect(() => {
         initWasm()
@@ -25,9 +25,10 @@ const UltimateTicTacToeContainer: React.FC = () => {
         <>
             <h2>Ultimate Tic-Tac-Toe</h2>
             {isWasmLoaded ? <>
-                <button onClick={() => setShowEvals(val => !val)}> {showEvals ? "hide evals" : "show evals"} </button>
+                <button onClick={() => setShowEvals(val => !val)}> {showEvals ? "Hide evals" : "Show evals"} </button>
                 <button onClick={() => setFirstPlayer(turn => turn == Turn.Player ? Turn.Ai : Turn.Player)}> {firstPlayer == Turn.Player ? "Player first" : "AI first"} </button>
                 <button onClick={() => setGameId(gameId => gameId + 1)}>Restart</button>
+                AI time limit (ms)
                 <input type="number" value={timeLimit} min="100" step="100" onChange={event => setTimeLimit(event.target.valueAsNumber)}></input>
                 <UltimateTicTacToe worker={wasmWorker} gameId={gameId} firstPlayer={firstPlayer} timeLimit={timeLimit} showEvals={showEvals} />
             </> : <WasmLoading />}
